@@ -18,9 +18,7 @@ type AppMetricsServiceSpec struct {
 // AppMetricsServiceStatus defines the observed state of AppMetricsService
 // +k8s:openapi-gen=true
 type AppMetricsServiceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Phase StatusPhase `json:"phase"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -44,6 +42,14 @@ type AppMetricsServiceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []AppMetricsService `json:"items"`
 }
+
+type StatusPhase string
+
+var (
+	PhaseEmpty     StatusPhase = ""
+	PhaseComplete  StatusPhase = "Complete"
+	PhaseProvision StatusPhase = "Provisioning"
+)
 
 func init() {
 	SchemeBuilder.Register(&AppMetricsService{}, &AppMetricsServiceList{})

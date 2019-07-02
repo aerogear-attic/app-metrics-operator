@@ -77,7 +77,15 @@ func schema_pkg_apis_metrics_v1alpha1_AppMetricsServiceStatus(ref common.Referen
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "AppMetricsServiceStatus defines the observed state of AppMetricsService",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"phase"},
 			},
 		},
 		Dependencies: []string{},
