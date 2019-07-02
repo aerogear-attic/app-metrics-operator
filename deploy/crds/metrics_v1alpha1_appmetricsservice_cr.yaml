@@ -2,6 +2,3 @@ apiVersion: metrics.aerogear.com/v1alpha1
 kind: AppMetricsService
 metadata:
   name: example-appmetricsservice
-spec:
-  # Add fields here
-  size: 3
