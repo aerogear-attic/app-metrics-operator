@@ -1,0 +1,7 @@
+apiVersion: metrics.aerogear.com/v1alpha1
+kind: AppMetricsApp
+metadata:
+  name: example-appmetricsapp
+spec:
+  # Add fields here
+  size: 3
