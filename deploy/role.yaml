@@ -48,7 +48,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - metrics.aerogear.com
+  - metrics.aerogear.org
   resources:
   - '*'
   verbs:

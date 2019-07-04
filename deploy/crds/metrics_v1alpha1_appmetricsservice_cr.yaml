@@ -1,4 +1,4 @@
-apiVersion: metrics.aerogear.com/v1alpha1
+apiVersion: metrics.aerogear.org/v1alpha1
 kind: AppMetricsService
 metadata:
   name: example-appmetricsservice
