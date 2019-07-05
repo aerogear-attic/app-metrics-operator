@@ -1,6 +1,13 @@
 NAMESPACE=app-metrics
+APP_NAMESPACES=app-metrics-apps
 CODE_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator
 TEST_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator-test
+
+
+QUAY_ORG=aerogear
+QUAY_IMAGE=app-metrics-operator
+DEV_TAG=dev
+
 
 .PHONY: setup/travis
 setup/travis:
@@ -41,17 +48,58 @@ test/compile:
 .PHONY: cluster/prepare
 cluster/prepare:
 	-kubectl create namespace $(NAMESPACE)
+	-kubectl create namespace ${APP_NAMESPACES}
 	-kubectl label namespace $(NAMESPACE) monitoring-key=middleware
-	-kubectl create -n $(NAMESPACE) -f deploy/service_account.yaml
-	-kubectl create -n $(NAMESPACE) -f deploy/role.yaml
-	-kubectl create -n $(NAMESPACE) -f deploy/role_binding.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/service_account.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/role.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/role_binding.yaml
 	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_crd.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsapp_crd.yaml
 
 .PHONY: cluster/clean
 cluster/clean:
+	make example-app/delete
 	-kubectl delete -n $(NAMESPACE) appMetricsservice --all
-	-kubectl delete -f deploy/role.yaml
+	-kubectl delete -n $(NAMESPACE) -f deploy/role.yaml
 	-kubectl delete -n $(NAMESPACE) -f deploy/role_binding.yaml
 	-kubectl delete -n $(NAMESPACE) -f deploy/service_account.yaml
 	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_crd.yaml
+	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsapp_crd.yaml
 	-kubectl delete namespace $(NAMESPACE)
+
+.PHONY: install
+install:
+	-kubectl apply -n $(NAMESPACE) -f deploy/operator.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_cr.yaml
+
+.PHONY: uninstall
+uninstall:
+	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_cr.yaml
+	-kubectl delete -n $(NAMESPACE) -f deploy/operator.yaml
+
+.PHONY: example-app/apply
+example-app/apply:
+	-kubectl apply -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsapp_cr.yaml
+
+
+.PHONY: example-app/delete
+example-app/delete:
+	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsapp_cr.yaml
+
+.PHONY: image/build/master
+image/build/master:
+	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
+
+.PHONY: image/push/master
+image/push/master:
+	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
+
+
+
+.PHONY: image/build/dev
+image/build/dev:
+	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}
+
+.PHONY: image/push/dev
+image/push/dev:
+	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}

@@ -381,6 +381,7 @@
   digest = "1:30a9fc8ac66cc8d28a91c94764b1b82dfcc707226e902db0e1b5893242f2e277"
   name = "github.com/openshift/api"
   packages = [
+    "route/v1",
     "apps/v1",
     "image/docker10",
     "image/dockerpre012",
