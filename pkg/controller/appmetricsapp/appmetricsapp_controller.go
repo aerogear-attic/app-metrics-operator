@@ -2,8 +2,13 @@ package appmetricsapp
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
 
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
+	routev1 "github.com/openshift/api/route/v1"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,11 +25,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_appmetricsapp")
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new AppMetricsApp Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -51,9 +51,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner AppMetricsApp
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// Watch for changes to secondary resources and requeue the owner AppMetricsApp
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &metricsv1alpha1.AppMetricsApp{},
 	})
@@ -77,8 +76,6 @@ type ReconcileAppMetricsApp struct {
 
 // Reconcile reads that state of the cluster for a AppMetricsApp object and makes changes based on the state read
 // and what is in the AppMetricsApp.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -100,54 +97,86 @@ func (r *ReconcileAppMetricsApp) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set AppMetricsApp instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	err = isValidAppNamespace(instance)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	routeList := &routev1.RouteList{}
+	listOptions := &client.ListOptions{}
+
+	ns, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	listOptions.InNamespace(ns)
+	listOptions.MatchingLabels(map[string]string{"component": "aerogear-app-metrics"})
+
+	err = r.client.List(context.TODO(), listOptions, routeList)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if len(routeList.Items) != 1 {
+		err = fmt.Errorf("Found more or less than one Route in the namespace for the metrics service")
+		return reconcile.Result{}, err
+	}
+
+	// Define a new ConfigMap object
+	configMap := newConfigMapForCR(instance, routeList.Items[0].Spec.Host)
+
+	// Set AppMetricsApp instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this ConfigMap already exists
+	found := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "cr.Spec.Name", instance.Spec.Name)
+		err = r.client.Create(context.TODO(), configMap)
 		if err != nil {
+			reqLogger.Info("Error creating the new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "Error", err)
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// ConfigMap created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// ConfigMap already exists - don't requeue
+	reqLogger.Info("Skip reconcile: ConfigMap already exists", "ConfigMap.Namespace", found.Namespace, "ConfigMap.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *metricsv1alpha1.AppMetricsApp) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
+func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsApp, host string) *corev1.ConfigMap {
+	configmapname := fmt.Sprintf("%s-metrics", cr.Spec.Name)
+	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
+			Name:      configmapname,
 			Namespace: cr.Namespace,
-			Labels:    labels,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
+		Data: map[string]string{
+			"SDKConfig": fmt.Sprintf("{\"url\": \"https://%s\"}", host),
 		},
 	}
+}
+
+// isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
+func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsApp) error {
+	appNamespacesEnvVar, found := os.LookupEnv("APP_NAMESPACES")
+	if !found {
+		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")
+	}
+
+	for _, ns := range strings.Split(appNamespacesEnvVar, ";") {
+		if ns == instance.Namespace {
+			return nil
+		}
+	}
+	return fmt.Errorf("The app cr %s was created in a namespace which is not present in the APP_NAMESPACES environment variable provided to the operator", instance.Name)
 }

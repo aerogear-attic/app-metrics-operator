@@ -15,15 +15,17 @@ spec:
       serviceAccountName: app-metrics-operator
       containers:
         - name: app-metrics-operator
-          image: quay.io/aerogear/app-metrics-operator:master
+          # Replace this with the built image name
+          image: quay.io/aerogear/app-metrics-operator:dev-ag9184
           command:
           - app-metrics-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: ""
+            - name: APP_NAMESPACES
+              # Replace this with a ; seperated list of namespaces which the operator will action app crs
+              value: "app-metrics-apps"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
