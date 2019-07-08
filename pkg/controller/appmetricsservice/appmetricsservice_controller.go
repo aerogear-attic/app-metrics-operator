@@ -4,9 +4,13 @@ import (
 	"context"
 
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
+	"github.com/aerogear/app-metrics-operator/pkg/config"
+
+	openshiftappsv1 "github.com/openshift/api/apps/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,7 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_appmetricsservice")
+var (
+	cfg = config.New()
+	log = logf.Log.WithName("controller_appmetricsservice")
+)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -77,8 +84,6 @@ type ReconcileAppMetricsService struct {
 
 // Reconcile reads that state of the cluster for a AppMetricsService object and makes changes based on the state read
 // and what is in the AppMetricsService.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -100,54 +105,239 @@ func (r *ReconcileAppMetricsService) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	// look for other appMetricsService resources and don't provision a new one if there is another one with Phase=Complete
+	existingInstances := &metricsv1alpha1.AppMetricsServiceList{}
+	opts := &client.ListOptions{Namespace: instance.Namespace}
+	err = r.client.List(context.TODO(), opts, existingInstances)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list AppMetricsService resources", "AppMetricsService.Namespace", instance.Namespace)
+		return reconcile.Result{}, err
+	} else if len(existingInstances.Items) > 1 { // check if > 1 since there's the current one already in that list.
+		for _, existingInstance := range existingInstances.Items {
+			if existingInstance.Name == instance.Name {
+				continue
+			}
+			if existingInstance.Status.Phase == metricsv1alpha1.PhaseProvision || existingInstance.Status.Phase == metricsv1alpha1.PhaseComplete {
+				reqLogger.Info("There is already an AppMetricsService resource in Complete phase. Doing nothing for this CR.", "AppMetricsService.Namespace", instance.Namespace, "AppMetricsService.Name", instance.Name)
+				return reconcile.Result{}, nil
+			}
+		}
+	}
 
-	// Set AppMetricsService instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	if instance.Status.Phase == metricsv1alpha1.PhaseEmpty {
+		instance.Status.Phase = metricsv1alpha1.PhaseProvision
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update AppMetricsService resource status phase", "AppMetricsService.Namespace", instance.Namespace, "AppMetricsService.Name", instance.Name)
+			return reconcile.Result{}, err
+		}
+	}
+
+	//#region Postgres PVC
+	persistentVolumeClaim, err := newPostgresqlPersistentVolumeClaim(instance)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, persistentVolumeClaim, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this PersistentVolumeClaim already exists
+	foundPersistentVolumeClaim := &corev1.PersistentVolumeClaim{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: persistentVolumeClaim.Name, Namespace: persistentVolumeClaim.Namespace}, foundPersistentVolumeClaim)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new PersistentVolumeClaim", "PersistentVolumeClaim.Namespace", persistentVolumeClaim.Namespace, "PersistentVolumeClaim.Name", persistentVolumeClaim.Name)
+		err = r.client.Create(context.TODO(), persistentVolumeClaim)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region Postgres Secret
+	postgresqlSecret, err := newPostgresqlSecret(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, postgresqlSecret, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Secret already exists
+	foundPostgresqlSecret := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: postgresqlSecret.Name, Namespace: postgresqlSecret.Namespace}, foundPostgresqlSecret)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Secret", "Secret.Namespace", postgresqlSecret.Namespace, "Secret.Name", postgresqlSecret.Name)
+		err = r.client.Create(context.TODO(), postgresqlSecret)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region Postgres DeploymentConfig
+	postgresqlDeploymentConfig, err := newPostgresqlDeploymentConfig(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, postgresqlDeploymentConfig, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this DeploymentConfig already exists
+	foundPostgresqlDeploymentConfig := &openshiftappsv1.DeploymentConfig{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: postgresqlDeploymentConfig.Name, Namespace: postgresqlDeploymentConfig.Namespace}, foundPostgresqlDeploymentConfig)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new DeploymentConfig", "DeploymentConfig.Namespace", postgresqlDeploymentConfig.Namespace, "DeploymentConfig.Name", postgresqlDeploymentConfig.Name)
+		err = r.client.Create(context.TODO(), postgresqlDeploymentConfig)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region Postgres Service
+	postgresqlService, err := newPostgresqlService(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, postgresqlService, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Service already exists
+	foundPostgresqlService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: postgresqlService.Name, Namespace: postgresqlService.Namespace}, foundPostgresqlService)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Service", "Service.Namespace", postgresqlService.Namespace, "Service.Name", postgresqlService.Name)
+		err = r.client.Create(context.TODO(), postgresqlService)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region AppMetrics Service
+	service, err := newAppMetricsServiceService(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Service already exists
+	foundService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, foundService)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Service", "Service.Namespace", service.Namespace, "Service.Name", service.Name)
+		err = r.client.Create(context.TODO(), service)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region AppMetrics Route
+	route, err := newAppMetricsServiceRoute(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, route, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Route already exists
+	foundRoute := &routev1.Route{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: route.Name, Namespace: route.Namespace}, foundRoute)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Route", "Route.Namespace", route.Namespace, "Route.Name", route.Name)
+		err = r.client.Create(context.TODO(), route)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region AppMetrics ImageStream
+	imageStream, err := newAppMetricsServiceImageStream(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set AppMetricsService instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, imageStream, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this ImageStream already exists
+	foundImageStream := &imagev1.ImageStream{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: imageStream.Name, Namespace: imageStream.Namespace}, foundImageStream)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new ImageStream", "ImageStream.Namespace", imageStream.Namespace, "ImageStream.Name", imageStream.Name)
+		err = r.client.Create(context.TODO(), imageStream)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+	//#endregion
+
+	//#region AppMetrics DeploymentConfig
+	deploymentConfig, err := newAppMetricsServiceDeploymentConfig(instance)
+
+	if err := controllerutil.SetControllerReference(instance, deploymentConfig, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this DeploymentConfig already exists
+	foundDeploymentConfig := &openshiftappsv1.DeploymentConfig{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: deploymentConfig.Name, Namespace: deploymentConfig.Namespace}, foundDeploymentConfig)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new DeploymentConfig", "DeploymentConfig.Namespace", deploymentConfig.Namespace, "DeploymentConfig.Name", deploymentConfig.Name)
+		err = r.client.Create(context.TODO(), deploymentConfig)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// DeploymentConfig created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
+	//#endregion
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	if foundDeploymentConfig.Status.ReadyReplicas > 0 && instance.Status.Phase != metricsv1alpha1.PhaseComplete {
+		instance.Status.Phase = metricsv1alpha1.PhaseComplete
+		r.client.Status().Update(context.TODO(), instance)
+	}
+
+	// Resources already exist - don't requeue
+	reqLogger.Info("Skip reconcile: resources already exist")
 	return reconcile.Result{}, nil
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *metricsv1alpha1.AppMetricsService) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }
