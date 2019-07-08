@@ -24,8 +24,8 @@ func New() Config {
 		AppMetricsContainerName: getEnv("APP_METRICS_CONTAINER_NAME", "appmetrics"),
 		PostgresContainerName:   getEnv("POSTGRES_CONTAINER_NAME", "postgresql"),
 
-		AppMetricsImageStreamName: getEnv("UPS_IMAGE_STREAM_NAME", "appmetrics-imagestream"),
-		AppMetricsImageStreamTag:  getEnv("UPS_IMAGE_STREAM_TAG", "0.0"),
+		AppMetricsImageStreamName: getEnv("APP_METRICS_IMAGE_STREAM_NAME", "appmetrics-imagestream"),
+		AppMetricsImageStreamTag:  getEnv("APP_METRICS_IMAGE_STREAM_TAG", "0.0"),
 
 		PostgresImageStreamNamespace: getEnv("POSTGRES_IMAGE_STREAM_NAMESPACE", "openshift"),
 		PostgresImageStreamName:      getEnv("POSTGRES_IMAGE_STREAM_NAME", "postgresql"),
