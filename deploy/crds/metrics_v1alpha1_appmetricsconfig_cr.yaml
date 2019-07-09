@@ -1,5 +1,5 @@
 apiVersion: metrics.aerogear.org/v1alpha1
-kind: AppMetricsApp
+kind: AppMetricsConfig
 metadata:
   name: example-app
 spec:
