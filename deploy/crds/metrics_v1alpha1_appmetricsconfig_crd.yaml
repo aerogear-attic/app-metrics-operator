@@ -1,14 +1,14 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: appmetricsapps.metrics.aerogear.org
+  name: appmetricsconfigs.metrics.aerogear.org
 spec:
   group: metrics.aerogear.org
   names:
-    kind: AppMetricsApp
-    listKind: AppMetricsAppList
-    plural: appmetricsapps
-    singular: appmetricsapp
+    kind: AppMetricsConfig
+    listKind: AppMetricsConfigList
+    plural: appmetricsconfigs
+    singular: appmetricsconfig
   scope: Namespaced
   subresources:
     status: {}

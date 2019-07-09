@@ -1,4 +1,4 @@
-package appmetricsapp
+package appmetricsconfig
 
 import (
 	"context"
@@ -24,9 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_appmetricsapp")
+var log = logf.Log.WithName("controller_appmetricsconfig")
 
-// Add creates a new AppMetricsApp Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new AppMetricsConfig Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -34,27 +34,27 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileAppMetricsApp{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileAppMetricsConfig{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("appmetricsapp-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("appmetricsconfig-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource AppMetricsApp
-	err = c.Watch(&source.Kind{Type: &metricsv1alpha1.AppMetricsApp{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource AppMetricsConfig
+	err = c.Watch(&source.Kind{Type: &metricsv1alpha1.AppMetricsConfig{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to secondary resources and requeue the owner AppMetricsApp
+	// Watch for changes to secondary resources and requeue the owner AppMetricsConfig
 	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &metricsv1alpha1.AppMetricsApp{},
+		OwnerType:    &metricsv1alpha1.AppMetricsConfig{},
 	})
 	if err != nil {
 		return err
@@ -63,28 +63,28 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileAppMetricsApp implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileAppMetricsApp{}
+// blank assignment to verify that ReconcileAppMetricsConfig implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileAppMetricsConfig{}
 
-// ReconcileAppMetricsApp reconciles a AppMetricsApp object
-type ReconcileAppMetricsApp struct {
+// ReconcileAppMetricsConfigreconciles a AppMetricsConfig object
+type ReconcileAppMetricsConfig struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a AppMetricsApp object and makes changes based on the state read
-// and what is in the AppMetricsApp.Spec
+// Reconcile reads that state of the cluster for a AppMetricsConfig object and makes changes based on the state read
+// and what is in the AppMetricsConfig.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileAppMetricsApp) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling AppMetricsApp")
+	reqLogger.Info("Reconciling AppMetricsConfig")
 
-	// Fetch the AppMetricsApp instance
-	instance := &metricsv1alpha1.AppMetricsApp{}
+	// Fetch the AppMetricsConfig instance
+	instance := &metricsv1alpha1.AppMetricsConfig{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -126,7 +126,7 @@ func (r *ReconcileAppMetricsApp) Reconcile(request reconcile.Request) (reconcile
 	// Define a new ConfigMap object
 	configMap := newConfigMapForCR(instance, routeList.Items[0].Spec.Host)
 
-	// Set AppMetricsApp instance as the owner and controller
+	// Set AppMetricsConfig instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -153,7 +153,7 @@ func (r *ReconcileAppMetricsApp) Reconcile(request reconcile.Request) (reconcile
 	return reconcile.Result{}, nil
 }
 
-func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsApp, host string) *corev1.ConfigMap {
+func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev1.ConfigMap {
 	configmapname := fmt.Sprintf("%s-metrics", cr.Spec.Name)
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +167,7 @@ func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsApp, host string) *corev1.C
 }
 
 // isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
-func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsApp) error {
+func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsConfig) error {
 	appNamespacesEnvVar, found := os.LookupEnv("APP_NAMESPACES")
 	if !found {
 		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")

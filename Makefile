@@ -54,7 +54,7 @@ cluster/prepare:
 	-kubectl apply -n $(NAMESPACE) -f deploy/role.yaml
 	-kubectl apply -n $(NAMESPACE) -f deploy/role_binding.yaml
 	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_crd.yaml
-	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsapp_crd.yaml
+	-kubectl apply -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_crd.yaml
 
 .PHONY: cluster/clean
 cluster/clean:
@@ -64,7 +64,7 @@ cluster/clean:
 	-kubectl delete -n $(NAMESPACE) -f deploy/role_binding.yaml
 	-kubectl delete -n $(NAMESPACE) -f deploy/service_account.yaml
 	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsservice_crd.yaml
-	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsapp_crd.yaml
+	-kubectl delete -n $(NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_crd.yaml
 	-kubectl delete namespace $(NAMESPACE)
 
 .PHONY: install
@@ -79,12 +79,12 @@ uninstall:
 
 .PHONY: example-app/apply
 example-app/apply:
-	-kubectl apply -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsapp_cr.yaml
+	-kubectl apply -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
 
 .PHONY: example-app/delete
 example-app/delete:
-	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsapp_cr.yaml
+	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
 .PHONY: image/build/master
 image/build/master:
