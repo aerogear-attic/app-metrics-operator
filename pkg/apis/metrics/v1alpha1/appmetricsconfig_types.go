@@ -7,7 +7,6 @@ import (
 // AppMetricsConfigSpec defines the desired state of AppMetricsConfig
 // +k8s:openapi-gen=true
 type AppMetricsConfigSpec struct {
-	Name string `json:"appName"`
 }
 
 // AppMetricsConfigStatus defines the observed state of AppMetricsConfig

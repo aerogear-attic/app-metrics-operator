@@ -135,7 +135,7 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 	found := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "cr.Spec.Name", instance.Spec.Name)
+		reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "cr.ObjectMeta.Name", instance.ObjectMeta.Name)
 		err = r.client.Create(context.TODO(), configMap)
 		if err != nil {
 			reqLogger.Info("Error creating the new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "Error", err)
@@ -154,7 +154,7 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 }
 
 func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev1.ConfigMap {
-	configmapname := fmt.Sprintf("%s-metrics", cr.Spec.Name)
+	configmapname := fmt.Sprintf("%s-metrics", cr.ObjectMeta.Name)
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configmapname,
@@ -173,7 +173,7 @@ func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsConfig) error {
 		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")
 	}
 
-	for _, ns := range strings.Split(appNamespacesEnvVar, ";") {
+	for _, ns := range strings.Split(appNamespacesEnvVar, ",") {
 		if ns == instance.Namespace {
 			return nil
 		}
