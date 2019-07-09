@@ -24,7 +24,7 @@ spec:
             - name: WATCH_NAMESPACE
               value: ""
             - name: APP_NAMESPACES
-              # Replace this with a ; seperated list of namespaces which the operator will action app crs
+              # Replace this with a comma (e.g. namespace,othernamespace) separated list of namespaces which the operator will action app crs
               value: "app-metrics-apps"
             - name: POD_NAME
               valueFrom:
