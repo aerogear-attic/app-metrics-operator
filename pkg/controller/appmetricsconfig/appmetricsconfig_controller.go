@@ -98,12 +98,14 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 	}
 	// Check if the namespace of the cr is in the APP_NAMESPACES environment variable provided to the operator or if it's in the operator namespace
 	operatorNamespace, err := k8sutil.GetOperatorNamespace()
+	reqLogger.Info("operatorNamespace", operatorNamespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = isValidAppNamespace(operatorNamespace, instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	is := isValidAppNamespace(operatorNamespace, instance)
+	if !is {
+		reqLogger.Info("The app cr %s was created in a namespace which is not present in the APP_NAMESPACES environment variable provided to the operator or is not the in the operator namespace", instance.Name)
+		return reconcile.Result{}, nil
 	}
 
 	routeList := &routev1.RouteList{}
@@ -165,21 +167,21 @@ func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev
 	}
 }
 
-// isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
-func isValidAppNamespace(operatorNamespace string, instance *metricsv1alpha1.AppMetricsConfig) error {
+// isValidAppNamespace returns false when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
+func isValidAppNamespace(operatorNamespace string, instance *metricsv1alpha1.AppMetricsConfig) bool {
 	appNamespacesEnvVar, found := os.LookupEnv("APP_NAMESPACES")
 	if !found {
-		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")
+		return false
 	}
 
 	if operatorNamespace == instance.Namespace {
-		return nil
+		return true
 	}
 
 	for _, ns := range strings.Split(appNamespacesEnvVar, ",") {
 		if ns == instance.Namespace {
-			return nil
+			return true
 		}
 	}
-	return fmt.Errorf("The app cr %s was created in a namespace which is not present in the APP_NAMESPACES environment variable provided to the operator", instance.Name)
+	return false
 }
