@@ -33,7 +33,7 @@ endif::[]
 
 
 The App Metrics Operator for Kubernetes provides an easy way to
-install and manage an App Metrics on Kubernetes.
+install and manage AeroGear App Metrics Service on Kubernetes.
 
 toc::[]
 
@@ -44,9 +44,8 @@ toc::[]
 [NOTE]
 ====
 This operator currently only works on OpenShift. This is because it
-provisions `Route`s and also relies on the fact that OpenShift
-provides an OAuth server. In future we aim to make it work on vanilla
-Kubernetes also.
+provisions `Route`s and `ImageStream`s. In future we aim to make it
+work on vanilla Kubernetes also.
 ====
 
 
@@ -141,8 +140,6 @@ AppMetricsService CR will result in a functional App Metrics Service
 deployed to your namespace.
 
 `AppMetricsService` has no fields that are configurable.
-
-|===
 
 An example AppMetricsService resource is available at
 `./deploy/crds/metrics_v1alpha1_appmetricsservice_cr.yaml`:
