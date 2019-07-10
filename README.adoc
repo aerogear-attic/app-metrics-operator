@@ -98,7 +98,7 @@ environment variable names, along with their default values:
 |`postgresql`
 | Name of the Postgres image stream to look for.
 
-|`OAUTH_PROXY_IMAGE_STREAM_TAG`
+|`POSTGRES_IMAGE_STREAM_TAG`
 |`10`
 | Tag of the Postgres image stream.
 
