@@ -22,7 +22,6 @@ endif::[]
 :mailing_list: https://groups.google.com/forum/#!forum/aerogear[Google Groups Mailing List]
 :minishift: https://github.com/minishift/minishift[Minishift]
 :rh_product_security: https://access.redhat.com/security/team/contact[Red Hat Product Security team]
-:minishift_cors: https://github.com/aerogear/mobile-developer-console#enable-cors-in-the-openshift-cluster[steps]
 
 = App Metrics Operator
 
@@ -33,8 +32,8 @@ image:https://img.shields.io/:license-Apache2-blue.svg[License (License), link=h
 endif::[]
 
 
-The Mobile Developer Console Operator for Kubernetes provides an easy way to
-install and manage an AeroGear Mobile Developer Console Operator on Kubernetes.
+The App Metrics Operator for Kubernetes provides an easy way to
+install and manage an App Metrics on Kubernetes.
 
 toc::[]
 
@@ -54,7 +53,7 @@ Kubernetes also.
 == Installation
 
 As a user with admin permissions, you can install the
-mobile-security-service-operator and a sample CR in your OpenShift cluster as follows:
+app-metrics-operator and a sample CR in your OpenShift cluster as follows:
 
 ....
 make cluster/prepare
@@ -127,6 +126,12 @@ If you would like to modify the container names, you can use the following envir
 |===
 
 
+=== Backups
+
+The `BACKUP_IMAGE` environment variable configures what image to use for backing up
+the custom resources created by this operator. Default value is `quay.io/integreatly/backup-container:1.0.8`.
+
+
 == Custom Resources (aka How to get value from this operator)
 
 === AppMetricsService
@@ -161,6 +166,57 @@ To see the created instance then, you can run:
 
 ....
 kubectl get appmetricsservice example-appmetricsservice -n app-metrics -o yaml
+....
+
+=== AppMetricsConfig
+
+This is the service consumption resource kind. Creation of a valid
+AppMetricsConfig CR will write the client config to
+a config map in the CR namespace.
+
+`AppMetricsConfig` has no fields that are configurable.
+
+An example AppMetricsConfig resource is available at
+`./deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml`:
+
+.metrics_v1alpha1_appmetricsconfig_cr.yaml
+[source,yaml]
+----
+apiVersion: metrics.aerogear.org/v1alpha1
+kind: AppMetricsConfig
+metadata:
+  name: example-app
+----
+
+To create this, you can run:
+
+....
+kubectl apply -n app-metrics -f ./deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
+....
+
+To see the created instance then, you can run:
+
+....
+kubectl get appmetricsconfig example-app -n app-metrics -o yaml
+....
+
+The config map created will have the name pattern `<cr-app-name>-metrics`. For the example above,
+you can run the following command to get the config map.
+
+....
+kubectl get configmap example-app-metrics -n app-metrics -o yaml
+....
+
+It will have content similar to this:
+
+....
+apiVersion: v1
+data:
+  SDKConfig: >-
+    {"url":
+    "https://example-appmetricsservice-appmetrics-app-metrics.openshift.cluster.hostname"}
+kind: ConfigMap
+...
 ....
 
 
@@ -210,13 +266,13 @@ make cluster/prepare
 make code/run
 ....
 
-3. Create a Mobile Developer Console instance (in another terminal):
+3. Create an App Metrics Service instance (in another terminal):
 
 ....
 make install
 ....
 
-4. Watch the status of your Mobile Developer Console instance provisioning (optional):
+4. Watch the status of your App Metrics Service instance provisioning (optional):
 
 ....
 watch -n1 "kubectl get po -n app-metrics && echo '' && kubectl get appmetricsservice -o yaml -n app-metrics"
@@ -231,7 +287,26 @@ forwarding the port from the relevant Pod in the cluster to the local
 machine. Run this in a separate terminal, and ctrl+c to clean it up
 when finished:
 
-6. When finished, clean up:
+6. Create an App Metrics Config instance:
+
+...
+make example-app/apply
+...
+
+7. Watch the status of your App Metrics Config (optional):
+
+....
+watch -n1 "kubectl get po -n app-metrics && echo '' && kubectl get appmetricsconfig -o yaml -n app-metrics"
+....
+
+8. Check the config map created:
+
+...
+kubectl get configmap -n app-metrics example-app-metrics -o yaml
+...
+
+
+9. When finished, clean up:
 ....
 make cluster/clean
 ....
@@ -243,5 +318,5 @@ confidentially please contact the {rh_product_security}.
 
 == Legal
 
-The Mobile Developer Console Operator is licensed under the {apache_license}
+The App Metrics Operator is licensed under the {apache_license}
 License, and is subject to the {export_policy}.
