@@ -1,13 +1,10 @@
-NAMESPACE=app-metrics
-APP_NAMESPACES=app-metrics-apps
-CODE_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator
-TEST_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator-test
-
-
-QUAY_ORG=aerogear
-QUAY_IMAGE=app-metrics-operator
-DEV_TAG=dev
-
+NAMESPACE           ?= app-metrics
+APP_NAMESPACES      ?= app-metrics-apps
+CODE_COMPILE_OUTPUT ?= build/_output/bin/app-metrics-operator
+TEST_COMPILE_OUTPUT ?= build/_output/bin/app-metrics-operator-test
+QUAY_ORG            ?= aerogear
+QUAY_IMAGE          ?= app-metrics-operator
+DEV_TAG             ?= $(shell git rev-parse --short HEAD)
 
 .PHONY: setup/travis
 setup/travis:
@@ -86,20 +83,10 @@ example-app/apply:
 example-app/delete:
 	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
-.PHONY: image/build/master
-image/build/master:
-	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
-
-.PHONY: image/push/master
-image/push/master:
-	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
-
-
-
-.PHONY: image/build/dev
-image/build/dev:
+.PHONY: image/build
+image/build:
 	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}
 
-.PHONY: image/push/dev
-image/push/dev:
+.PHONY: image/push
+image/push: image/build
 	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}
