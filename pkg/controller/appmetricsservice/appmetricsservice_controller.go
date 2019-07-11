@@ -2,6 +2,7 @@ package appmetricsservice
 
 import (
 	"context"
+	"time"
 
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
 	"github.com/aerogear/app-metrics-operator/pkg/config"
@@ -9,6 +10,7 @@ import (
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -114,6 +116,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to secondary resource Route and requeue the owner AppMetricsService
 	err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource CronJob and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &batchv1beta1.CronJob{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &metricsv1alpha1.AppMetricsService{},
 	})
@@ -385,6 +396,60 @@ func (r *ReconcileAppMetricsService) Reconcile(request reconcile.Request) (recon
 	}
 	//#endregion
 
+	//#region Backups
+	if len(instance.Spec.Backups) > 0 {
+		backupjobSA := &corev1.ServiceAccount{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "backupjob", Namespace: instance.Namespace}, backupjobSA)
+		if err != nil {
+			reqLogger.Error(err, "A 'backupjob' ServiceAccount is required for the requested backup CronJob(s). Will check again in 10 seconds")
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+		}
+	}
+
+	existingCronJobs := &batchv1beta1.CronJobList{}
+	opts = client.InNamespace(instance.Namespace).MatchingLabels(labels(instance, "backup"))
+	err = r.client.List(context.TODO(), opts, existingCronJobs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	desiredCronJobs, err := backups(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	for _, desiredCronJob := range desiredCronJobs {
+		if err := controllerutil.SetControllerReference(instance, &desiredCronJob, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if exists := containsCronJob(existingCronJobs.Items, &desiredCronJob); exists {
+			err = r.client.Update(context.TODO(), &desiredCronJob)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		} else {
+			reqLogger.Info("Creating a new CronJob", "CronJob.Namespace", desiredCronJob.Namespace, "CronJob.Name", desiredCronJob.Name)
+			err = r.client.Create(context.TODO(), &desiredCronJob)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+	}
+
+	for _, existingCronJob := range existingCronJobs.Items {
+		desired := containsCronJob(desiredCronJobs, &existingCronJob)
+		if !desired {
+			reqLogger.Info("Deleting backup CronJob since it was removed from CR", "CronJob.Namespace", existingCronJob.Namespace, "CronJob.Name", existingCronJob.Name)
+			err = r.client.Delete(context.TODO(), &existingCronJob)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+	//#endregion
+
 	if foundDeploymentConfig.Status.ReadyReplicas > 0 && instance.Status.Phase != metricsv1alpha1.PhaseComplete {
 		instance.Status.Phase = metricsv1alpha1.PhaseComplete
 		r.client.Status().Update(context.TODO(), instance)
@@ -393,4 +458,13 @@ func (r *ReconcileAppMetricsService) Reconcile(request reconcile.Request) (recon
 	// Resources already exist - don't requeue
 	reqLogger.Info("Skip reconcile: resources already exist")
 	return reconcile.Result{}, nil
+}
+
+func containsCronJob(cronJobs []batchv1beta1.CronJob, candidate *batchv1beta1.CronJob) bool {
+	for _, cronJob := range cronJobs {
+		if candidate.Name == cronJob.Name {
+			return true
+		}
+	}
+	return false
 }

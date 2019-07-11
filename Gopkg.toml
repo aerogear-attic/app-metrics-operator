@@ -66,8 +66,3 @@ required = [
   go-tests = true
   non-go = true
   unused-packages = true
-
-  [[prune.project]]
-    name = "k8s.io/kube-state-metrics"
-    unused-packages = true
-  

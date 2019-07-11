@@ -135,10 +135,25 @@ func schema_pkg_apis_metrics_v1alpha1_AppMetricsServiceSpec(ref common.Reference
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "AppMetricsServiceSpec defines the desired state of AppMetricsService",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"backups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Backups is an array of configs that will be used to create CronJob resource instances",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1.AppMetricsServiceBackup"),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1.AppMetricsServiceBackup"},
 	}
 }
 
