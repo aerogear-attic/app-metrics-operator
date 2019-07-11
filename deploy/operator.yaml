@@ -15,8 +15,7 @@ spec:
       serviceAccountName: app-metrics-operator
       containers:
         - name: app-metrics-operator
-          # Replace this with the built image name
-          image: quay.io/aerogear/app-metrics-operator:dev-ag9184
+          image: quay.io/aerogear/app-metrics-operator:master
           command:
           - app-metrics-operator
           imagePullPolicy: Always
