@@ -58,9 +58,62 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner AppMetricsService
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// Watch for changes to secondary resource DeploymentConfig and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &openshiftappsv1.DeploymentConfig{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource ImageStream and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &imagev1.ImageStream{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource Secret and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource PersistentVolumeClaim and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource Service and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource ServiceAccount and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &metricsv1alpha1.AppMetricsService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource Route and requeue the owner AppMetricsService
+	err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &metricsv1alpha1.AppMetricsService{},
 	})
