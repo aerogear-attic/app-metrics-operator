@@ -9,14 +9,10 @@ import (
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -47,15 +43,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource AppMetricsConfig
 	err = c.Watch(&source.Kind{Type: &metricsv1alpha1.AppMetricsConfig{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to secondary resources and requeue the owner AppMetricsConfig
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &metricsv1alpha1.AppMetricsConfig{},
-	})
 	if err != nil {
 		return err
 	}
@@ -123,47 +110,7 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	// Define a new ConfigMap object
-	configMap := newConfigMapForCR(instance, routeList.Items[0].Spec.Host)
-
-	// Set AppMetricsConfig instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this ConfigMap already exists
-	found := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "cr.ObjectMeta.Name", instance.ObjectMeta.Name)
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil {
-			reqLogger.Info("Error creating the new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name, "Error", err)
-			return reconcile.Result{}, err
-		}
-
-		// ConfigMap created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// ConfigMap already exists - don't requeue
-	reqLogger.Info("Skip reconcile: ConfigMap already exists", "ConfigMap.Namespace", found.Namespace, "ConfigMap.Name", found.Name)
 	return reconcile.Result{}, nil
-}
-
-func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev1.ConfigMap {
-	configmapname := fmt.Sprintf("%s-metrics", cr.ObjectMeta.Name)
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configmapname,
-			Namespace: cr.Namespace,
-		},
-		Data: map[string]string{
-			"SDKConfig": fmt.Sprintf("{\"url\": \"https://%s\"}", host),
-		},
-	}
 }
 
 // isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
