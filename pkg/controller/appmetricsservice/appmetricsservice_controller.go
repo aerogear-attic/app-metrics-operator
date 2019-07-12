@@ -5,6 +5,7 @@ import (
 
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
 	"github.com/aerogear/app-metrics-operator/pkg/config"
+	"github.com/aerogear/app-metrics-operator/pkg/controller/util"
 
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -52,8 +53,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	onlyEnqueueForServiceNamespace, err := util.NewNamespacePredicateFromEnvVar("SERVICE_NAMESPACE")
+	if err != nil {
+		return err
+	}
+
 	// Watch for changes to primary resource AppMetricsService
-	err = c.Watch(&source.Kind{Type: &metricsv1alpha1.AppMetricsService{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(
+		&source.Kind{Type: &metricsv1alpha1.AppMetricsService{}},
+		&handler.EnqueueRequestForObject{},
+		onlyEnqueueForServiceNamespace,
+	)
 	if err != nil {
 		return err
 	}

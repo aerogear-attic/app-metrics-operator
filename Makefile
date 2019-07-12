@@ -1,13 +1,10 @@
-NAMESPACE=app-metrics
-APP_NAMESPACES=app-metrics-apps
-CODE_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator
-TEST_COMPILE_OUTPUT = build/_output/bin/app-metrics-operator-test
-
-
-QUAY_ORG=aerogear
-QUAY_IMAGE=app-metrics-operator
-DEV_TAG=dev
-
+NAMESPACE           ?= app-metrics
+APP_NAMESPACE       ?= app-metrics-apps
+CODE_COMPILE_OUTPUT ?= build/_output/bin/app-metrics-operator
+TEST_COMPILE_OUTPUT ?= build/_output/bin/app-metrics-operator-test
+QUAY_ORG            ?= aerogear
+QUAY_IMAGE          ?= app-metrics-operator
+DEV_TAG             ?= $(shell git rev-parse --short HEAD)
 
 .PHONY: setup/travis
 setup/travis:
@@ -23,8 +20,10 @@ code/compile: code/gen
 	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o=$(CODE_COMPILE_OUTPUT) ./cmd/manager/main.go
 
 .PHONY: code/run
+code/run: export SERVICE_NAMESPACE = $(NAMESPACE)
+code/run: export APP_NAMESPACES    = $(NAMESPACE),$(APP_NAMESPACE)
 code/run: code/gen
-	operator-sdk up local --namespace $(NAMESPACE)
+	operator-sdk up local
 
 .PHONY: code/gen
 code/gen: code/fix
@@ -48,7 +47,7 @@ test/compile:
 .PHONY: cluster/prepare
 cluster/prepare:
 	-kubectl create namespace $(NAMESPACE)
-	-kubectl create namespace ${APP_NAMESPACES}
+	-kubectl create namespace ${APP_NAMESPACE}
 	-kubectl label namespace $(NAMESPACE) monitoring-key=middleware
 	-kubectl apply -n $(NAMESPACE) -f deploy/service_account.yaml
 	-kubectl apply -n $(NAMESPACE) -f deploy/role.yaml
@@ -79,27 +78,25 @@ uninstall:
 
 .PHONY: example-app/apply
 example-app/apply:
-	-kubectl apply -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
+	-kubectl apply -n $(APP_NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
 
 .PHONY: example-app/delete
 example-app/delete:
-	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
+	-kubectl delete -n $(APP_NAMESPACE) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
 .PHONY: image/build/master
 image/build/master:
 	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
 
 .PHONY: image/push/master
-image/push/master:
+image/push/master: image/build/master
 	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:master
-
-
 
 .PHONY: image/build/dev
 image/build/dev:
-	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}
+	operator-sdk build quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG} --image-build-args "--label quay.expires-after=2w"
 
 .PHONY: image/push/dev
-image/push/dev:
+image/push/dev: image/build/dev
 	docker push quay.io/${QUAY_ORG}/${QUAY_IMAGE}:${DEV_TAG}

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
+	"github.com/aerogear/app-metrics-operator/pkg/controller/util"
+
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	corev1 "k8s.io/api/core/v1"
@@ -45,8 +46,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	onlyEnqueueForValidNamespaces, err := util.NewNamespacePredicateFromEnvVar("APP_NAMESPACES")
+	if err != nil {
+		return err
+	}
+
 	// Watch for changes to primary resource AppMetricsConfig
-	err = c.Watch(&source.Kind{Type: &metricsv1alpha1.AppMetricsConfig{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(
+		&source.Kind{Type: &metricsv1alpha1.AppMetricsConfig{}},
+		&handler.EnqueueRequestForObject{},
+		onlyEnqueueForValidNamespaces,
+	)
 	if err != nil {
 		return err
 	}
@@ -97,22 +107,11 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	err = isValidAppNamespace(instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	appMetricsServiceNamespace := getOperatorNamespace()
+	appMetricsServiceLabels := map[string]string{"component": "aerogear-app-metrics"}
+	listOptions := client.InNamespace(appMetricsServiceNamespace).MatchingLabels(appMetricsServiceLabels)
 
 	routeList := &routev1.RouteList{}
-	listOptions := &client.ListOptions{}
-
-	ns, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	listOptions.InNamespace(ns)
-	listOptions.MatchingLabels(map[string]string{"component": "aerogear-app-metrics"})
-
 	err = r.client.List(context.TODO(), listOptions, routeList)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -166,17 +165,16 @@ func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev
 	}
 }
 
-// isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
-func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsConfig) error {
-	appNamespacesEnvVar, found := os.LookupEnv("APP_NAMESPACES")
-	if !found {
-		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")
-	}
-
-	for _, ns := range strings.Split(appNamespacesEnvVar, ",") {
-		if ns == instance.Namespace {
-			return nil
+func getOperatorNamespace() string {
+	operatorNamespace, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		// must be running locally. use $SERVICE_NAMESPACE
+		found := false
+		operatorNamespace, found = os.LookupEnv("SERVICE_NAMESPACE")
+		if !found {
+			// absolute fallback to Makefile default
+			operatorNamespace = "app-metrics"
 		}
 	}
-	return fmt.Errorf("The app cr %s was created in a namespace which is not present in the APP_NAMESPACES environment variable provided to the operator", instance.Name)
+	return operatorNamespace
 }
