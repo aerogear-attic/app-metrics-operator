@@ -164,6 +164,32 @@ If you would like to modify the container names, you can use the following envir
 The `BACKUP_IMAGE` environment variable configures what image to use for backing up
 the custom resources created by this operator. Default value is `quay.io/integreatly/backup-container:1.0.8`.
 
+=== Monitoring Service (Metrics)
+
+The application-monitoring stack provisioned by the
+{application_monitoring_operator} on https://github.com/integr8ly[Integr8ly]
+can be used to gather metrics from this operator and the AppMetrics Server. These metrics can be used by Integr8ly's application monitoring to generate Prometheus metrics, AlertManager alerts and a Grafana dashboard.
+
+It is required that the https://github.com/integr8ly/grafana-operator[integr8ly/Grafana] and https://github.com/coreos/prometheus-operator[Prometheus] operators are installed. For further detail see https://github.com/integr8ly/application-monitoring-operator[integr8ly/application-monitoring-operator].
+
+The following command enables the monitoring service in the operator namespace:
+
+[source,shell]
+----
+make monitoring/install
+----
+
+IMPORTANT: The namespaces are setup manually in the files link:./deploy/monitor/service_monitor.yaml[ServiceMonitor], link:./deploy/monitor/prometheus_rule.yaml[Prometheus Rules], link:./deploy/monitor/operator-service.yaml[Operator Service], and link:./deploy/monitor/grafana-dashboard[Grafana Dashboard]. Following an example from the link:./deploy/monitor/prometheus_rule.yaml[Prometheus Rules]. You should replace them if the operator is not installed in the default namespace.
+
+[source,yaml]
+----
+  expr: |
+          (1-absent(kube_pod_status_ready{condition="true", namespace="app-metrics"})) or sum(kube_pod_status_ready{condition="true", namespace="app-metrics"}) < 3
+
+[source,shell]
+----
+
+NOTE: The command `make monitoring/uninstall` will uninstall the Monitor Service.
 
 == Custom Resources (aka How to get value from this operator)
 
@@ -325,7 +351,6 @@ watch -n1 "kubectl get po -n app-metrics && echo '' && kubectl get appmetricscon
 kubectl get configmap -n app-metrics example-app-metrics -o yaml
 ----
 
-
 9. When finished, clean up:
 
 [source,shell]
@@ -396,6 +421,8 @@ NOTE: See the link:./Jenkinsfile[Jenkinsfile].
 | `make cluster/clean`             | It will delete what was performed in the `make cluster/prepare` .
 | `make example-app/apply`  | Create an Example App Metrics Config instance
 | `make cluster/prepare`                | It will apply all less the operator.yaml.
+| `make monitoring/install`        | Installs Monitoring Service in order to provide metrics
+| `make monitoring/uninstall`      | Uninstalls Monitoring Service in order to provide metrics, i.e. all configuration applied by `make monitoring/install`
 |===
 
 === Local Development
@@ -423,7 +450,6 @@ NOTE: See the link:./Jenkinsfile[Jenkinsfile].
 |===
 
 NOTE: The link:./Makefile[Makefile] is implemented with tasks which you should use to work with.
-
 
 == Supportability
 // https://issues.jboss.org/browse/AEROGEAR-9162

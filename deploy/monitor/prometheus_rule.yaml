@@ -1,0 +1,35 @@
+# Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    monitoring-key: middleware
+    prometheus: application-monitoring
+    role: alert-rules
+  name: application-monitoring
+spec:
+  selector:
+    matchLabels:
+      name: app-metrics-operator
+  groups:
+    - name: general.rules
+      rules:
+      - alert: AppMetricsOperatorDown
+        expr: absent(up{job="app-metrics-operator"} == 1)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: "The AppMetrics Operator has been down for more than 5 minutes. "
+          summary: "The AppMetrics Operator is down. For more information see on the AppMetrics Operator https://github.com/aerogear/app-metrics-operator"
+          sop_url: "https://github.com/aerogear/app-metrics-operator/blob/0.1.0/SOP/SOP-operator.adoc"
+      - alert: AppMetricsPodcount
+        annotations:
+          description: "The Pod count for the AppMetrics Server has changed in the last 5 minutes and is lower than the required minimum."
+          summary: Pod count for the operator namespace  is {{ printf "%.0f" $value }}. Expected 3 pods at least. For more information see on the AppMetrics Operator https://github.com/aerogear/app-metrics-operator
+          sop_url: "https://github.com/aerogear/app-metrics-operator/blob/0.1.0/SOP/SOP-operator.adoc" 
+        expr: |
+          (1-absent(kube_pod_status_ready{condition="true", namespace="app-metrics"})) or sum(kube_pod_status_ready{condition="true", namespace="app-metrics"}) < 3
+        for: 5m
+        labels:
+          severity: warning

@@ -107,3 +107,20 @@ example-app/apply:
 example-app/delete:
 	-kubectl delete -n $(APP_NAMESPACES) -f deploy/crds/metrics_v1alpha1_appmetricsconfig_cr.yaml
 
+
+.PHONY: monitoring/install
+monitoring/install:
+	@echo Installing service monitor in ${NAMESPACE} :
+	- kubectl label namespace ${NAMESPACE} monitoring-key=middleware
+	- kubectl apply -n $(NAMESPACE) -f deploy/monitor/service_monitor.yaml
+	- kubectl apply -n $(NAMESPACE) -f deploy/monitor/operator_service.yaml
+	- kubectl apply -n $(NAMESPACE) -f deploy/monitor/prometheus_rule.yaml
+	- kubectl apply -n $(NAMESPACE) -f deploy/monitor/grafana_dashboard.yaml
+
+.PHONY: monitoring/uninstall
+monitoring/uninstall:
+	@echo Uninstalling monitor service from ${NAMESPACE} :
+	- kubectl delete -n $(NAMESPACE) -f deploy/monitor/service_monitor.yaml
+	- kubectl delete -n $(NAMESPACE) -f deploy/monitor/prometheus_rule.yaml
+	- kubectl delete -n $(NAMESPACE) -f deploy/monitor/grafana_dashboard.yaml
+	- kubectl delete -n $(NAMESPACE) -f deploy/monitor/operator_service.yaml
