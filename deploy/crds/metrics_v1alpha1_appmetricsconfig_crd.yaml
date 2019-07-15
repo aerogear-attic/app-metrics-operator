@@ -30,6 +30,12 @@ spec:
         spec:
           type: object
         status:
+          properties:
+            host:
+              description: Host is the exposed URL for the AppMetricsService instance
+              type: string
+          required:
+          - host
           type: object
   version: v1alpha1
   versions:

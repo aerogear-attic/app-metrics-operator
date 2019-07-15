@@ -12,6 +12,9 @@ type AppMetricsConfigSpec struct {
 // AppMetricsConfigStatus defines the observed state of AppMetricsConfig
 // +k8s:openapi-gen=true
 type AppMetricsConfigStatus struct {
+
+	// Host is the exposed URL for the AppMetricsService instance
+	Host string `json:"host"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

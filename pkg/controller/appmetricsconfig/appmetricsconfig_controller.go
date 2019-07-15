@@ -110,6 +110,14 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
+	instance.Status.Host = routeList.Items[0].Spec.Host
+
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Error updating AppMetricsConfig status", "AppMetricsConfig.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
