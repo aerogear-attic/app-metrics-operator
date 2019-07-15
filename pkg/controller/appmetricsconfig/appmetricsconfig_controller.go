@@ -3,10 +3,8 @@ package appmetricsconfig
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
-
 	metricsv1alpha1 "github.com/aerogear/app-metrics-operator/pkg/apis/metrics/v1alpha1"
+	operutils "github.com/aerogear/app-metrics-operator/pkg/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	corev1 "k8s.io/api/core/v1"
@@ -97,20 +95,29 @@ func (r *ReconcileAppMetricsConfig) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	err = isValidAppNamespace(instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	// Ensure that the it will be installed and performed just in the namespaces setup in the ENV VAR APP NAMESPACES
+	if isValidNamespace, err := operutils.IsValidAppNamespace(instance.Namespace); err != nil || isValidNamespace == false {
+		// Stop reconcile
+		envVar, _ := operutils.GetAppNamespaces()
+		reqLogger.Error(err, "Unable to reconcile AppMetricsConfig", "instance.Namespace", instance.Namespace, "isValidNamespace", isValidNamespace, "EnvVar.APP_NAMESPACES", envVar)
+
+		// Stop to reconcile since it is not a valid APP Namespace at all
+		return reconcile.Result{}, nil
 	}
 
 	routeList := &routev1.RouteList{}
 	listOptions := &client.ListOptions{}
 
-	ns, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return reconcile.Result{}, err
+	if isValidNamespace, err := operutils.IsValidOperatorNamespace(instance.Namespace); err != nil || isValidNamespace == false {
+		// Get Operator Namespace
+		operatorNamespace, _ := k8sutil.GetOperatorNamespace()
+		reqLogger.Error(err, "Unable to reconcile AppMetricsConfig", "mss.Namespace", instance.Namespace, "isValidNamespace", isValidNamespace, "Operator.Namespace", operatorNamespace)
+
+		// Stop Reconcile site it is not in valid oper namespace at all
+		return reconcile.Result{}, nil
 	}
 
-	listOptions.InNamespace(ns)
+	listOptions.InNamespace(instance.Namespace)
 	listOptions.MatchingLabels(map[string]string{"component": "aerogear-app-metrics"})
 
 	err = r.client.List(context.TODO(), listOptions, routeList)
@@ -164,19 +171,4 @@ func newConfigMapForCR(cr *metricsv1alpha1.AppMetricsConfig, host string) *corev
 			"SDKConfig": fmt.Sprintf("{\"url\": \"https://%s\"}", host),
 		},
 	}
-}
-
-// isValidAppNamespace returns an error when the namespace passed is not present in the APP_NAMESPACES environment variable provided to the operator.
-func isValidAppNamespace(instance *metricsv1alpha1.AppMetricsConfig) error {
-	appNamespacesEnvVar, found := os.LookupEnv("APP_NAMESPACES")
-	if !found {
-		return fmt.Errorf("APP_NAMESPACES environment variable is required for the creation of the app cr")
-	}
-
-	for _, ns := range strings.Split(appNamespacesEnvVar, ",") {
-		if ns == instance.Namespace {
-			return nil
-		}
-	}
-	return fmt.Errorf("The app cr %s was created in a namespace which is not present in the APP_NAMESPACES environment variable provided to the operator", instance.Name)
 }

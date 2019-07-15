@@ -40,10 +40,10 @@ pipeline {
                     echo "====++++'Trust' execution failed++++===="
                     echo "You are not authorized to run this job"
                 }
-        
+
             }
         }
-        
+
         stage("Run oc-cluster-up"){
             steps{
                 // qe-pipeline-library step
@@ -54,7 +54,7 @@ pipeline {
                     echo "====++++Run oc-cluster-up execution failed++++===="
                     echo "Try to rerun the job"
                 }
-        
+
             }
         }
 
@@ -97,7 +97,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage("Build test binary"){
             steps{
                 dir("${env.CLONED_REPOSITORY_PATH}") {
