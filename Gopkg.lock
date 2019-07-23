@@ -410,7 +410,7 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:30a9fc8ac66cc8d28a91c94764b1b82dfcc707226e902db0e1b5893242f2e277"
   name = "github.com/openshift/api"
   packages = [
     "apps/v1",
