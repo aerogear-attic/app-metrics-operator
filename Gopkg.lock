@@ -57,25 +57,6 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
-  branch = "AEROGEAR-8955"
-  digest = "1:fff98043c858b1a6243a45dd4732f552762251cc56ece0efa6b56bd1c0e78ad6"
-  name = "github.com/aerogear/mobile-security-service-operator"
-  packages = ["pkg/utils"]
-  pruneopts = "NUT"
-  revision = "295906a9713e98e054dfe7647543deac792fee2f"
-
-[[projects]]
-  branch = "master"
-  digest = "1:cdb728ceabf6df1faa0c905693a54c81b74c325e748d5f86260b0ca9e25ca270"
-  name = "github.com/aerogear/unifiedpush-operator"
-  packages = [
-    "pkg/apis",
-    "pkg/apis/push/v1alpha1",
-  ]
-  pruneopts = "NUT"
-  revision = "68b12a11d13963b3c95cf153aa758cdf95dd8755"
-
-[[projects]]
   digest = "1:680b63a131506e668818d630d3ca36123ff290afa0afc9f4be21940adca3f27d"
   name = "github.com/appscode/jsonpatch"
   packages = ["."]
@@ -968,7 +949,7 @@
   revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
 
 [[projects]]
-  digest = "1:cc801a801d45d185262d10907ac1ebf0d41a1169d1e9c9953a395db3d3577417"
+  digest = "1:e9c00f7303959602872ddd9dab7481dbf9d16e5e78641613abfab0cbf8bfe35e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1196,8 +1177,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/aerogear/mobile-security-service-operator/pkg/utils",
-    "github.com/aerogear/unifiedpush-operator/pkg/apis",
     "github.com/go-openapi/spec",
     "github.com/google/uuid",
     "github.com/openshift/api/apps/v1",
