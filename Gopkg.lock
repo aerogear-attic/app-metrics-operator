@@ -128,6 +128,14 @@
   version = "v2.9.6"
 
 [[projects]]
+  digest = "1:4304cca260ab815326ca42d9c28fb843342748267034c51963e13f5e54e727d1"
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "026c730a0dcc5d11f93f1cf1cc65b01247ea7b6f"
+  version = "v4.5.0"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -941,7 +949,7 @@
   revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
 
 [[projects]]
-  digest = "1:cc801a801d45d185262d10907ac1ebf0d41a1169d1e9c9953a395db3d3577417"
+  digest = "1:e9c00f7303959602872ddd9dab7481dbf9d16e5e78641613abfab0cbf8bfe35e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -994,6 +1002,7 @@
     "rest",
     "rest/watch",
     "restmapper",
+    "testing",
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
@@ -1104,7 +1113,7 @@
   version = "v1.6.0"
 
 [[projects]]
-  digest = "1:8668d7467d4163df3671a4fec50b9f83ce2e82cf230def2b74ee5d55ae7309d2"
+  digest = "1:a66a51f9d249201451fd7cf956d69da9a88fb216b2e0d3f8b1ce5d2a7990539e"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -1112,6 +1121,7 @@
     "pkg/client",
     "pkg/client/apiutil",
     "pkg/client/config",
+    "pkg/client/fake",
     "pkg/controller",
     "pkg/controller/controllerutil",
     "pkg/event",
@@ -1191,7 +1201,9 @@
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
+    "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth",
+    "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/conversion-gen",
@@ -1204,6 +1216,7 @@
     "k8s.io/kube-openapi/pkg/common",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
+    "sigs.k8s.io/controller-runtime/pkg/client/fake",
     "sigs.k8s.io/controller-runtime/pkg/controller",
     "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil",
     "sigs.k8s.io/controller-runtime/pkg/handler",
